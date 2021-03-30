@@ -121,8 +121,15 @@ class Preprocessor:
         if lexicon_path is not None:
             with open(lexicon_path, "r") as fid:
                 lexicon = (l.strip().split() for l in fid)
-                lexicon = {l[0]: l[1:] for l in lexicon}
-                self.lexicon = lexicon
+                d = {}
+                tokens_set = set()
+                for l in lexicon:
+                    d[l[0]] = l[1:]
+                    for i in l[1:]:
+                        tokens_set.add(i)
+                self.tokens = [l.strip() for l in tokens_set]
+
+                self.lexicon = d
         else:
             self.lexicon = None
 
