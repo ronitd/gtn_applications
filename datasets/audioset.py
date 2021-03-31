@@ -123,6 +123,7 @@ class Preprocessor:
                 lexicon = (l.strip().split() for l in fid)
                 d = {}
                 tokens_set = set()
+                tokens_set.add(self.wordsep)
                 for l in lexicon:
                     d[l[0]] = l[1:]
                     for i in l[1:]:
@@ -148,9 +149,10 @@ class Preprocessor:
                 line = [
                     t
                     for w in line.split(self.wordsep)
-                    for t in self.lexicon.get(w, self.wordsep + w)
+                    for t in self.lexicon.get(w, self.wordsep + w).append(self.wordsep)
                 ]
             tok_to_idx = self.tokens_to_index
+            line.strip(self.wordsep)
         # In some cases we require the target to start with self.wordsep, for
         # example when learning word piece decompositions.
         if self._prepend_wordsep:
