@@ -4,6 +4,7 @@ import math
 from IPython.display import display, Image
 # import sys
 # sys.path.append('./scripts/')
+# import audioset
 import scripts.load_arpa as arpa
 
 class TrieNode(object):
@@ -51,7 +52,6 @@ def language_graph(tokens_to_idx, root, vocab, blank_idx):
     q.append(root)
     count = 0
     count_q.append(count)
-    d = {0: '*', -2: "_"}
 
     end = 1
     count = 1
@@ -63,30 +63,30 @@ def language_graph(tokens_to_idx, root, vocab, blank_idx):
         for child in curr.children:
             count += 1
             g.add_node()
-            g.add_arc(curr_count, count, tokens_to_idx[curr.children[child].char], gtn.epsilon,
-                      curr.children[child].counter / curr.counter)
+            # curr.children[child].counter / curr.counter
+            g.add_arc(curr_count, count, tokens_to_idx[curr.children[child].char], gtn.epsilon,0
+                      )
             g.add_arc(count, count, blank_idx, gtn.epsilon, 0)
             g.add_arc(count, count, tokens_to_idx[curr.children[child].char], gtn.epsilon, 0)
             count_q.append(count)
             q.append(curr.children[child])
-            d[count] = child
         if curr.word_finished:
             g.add_arc(curr_count, end, gtn.epsilon, vocab[curr.word], 0)
             g.add_arc(curr_count, end, tokens_to_idx['_'], vocab[curr.word], 0)
 
     g = gtn.closure(g)
-
+    g.arc_sort(olabel=True)
     gtn.savetxt('L.txt', g)
     # g = gtn.loadtxt('L.txt')
     return g
 
 
-def compose_language_grammer(tokens_to_index, lexicon_path, lm_path):
+def compose_language_grammar(tokens_to_index, lexicon_path, lm_path):
     counts, vocab = arpa.read_counts_from_arpa(lm_path)
     symb = {v: k for k, v in vocab.items()}
     root = TrieNode('*')
     d = {}
-    with open("lexicon.txt", "r") as fid:
+    with open(lexicon_path, "r") as fid:
         lexicon = (l.strip().split() for l in fid)
         for l in lexicon:
             d[l[1:]] = l[0]
@@ -97,5 +97,31 @@ def compose_language_grammer(tokens_to_index, lexicon_path, lm_path):
     g_lexicon = language_graph(tokens_to_index, root, vocab)
 
     g_lm = arpa.build_lm_graph(counts, vocab)
+    g_lm.arc_sort()
+    gtn.savetxt('G.txt', g_lm)
     g = gtn.compose(g_lexicon, g_lm)
+    g.arc_sort()
+    gtn.savetxt('LG.txt', g)
+
+
+if __name__ == '__main__':
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Compute data stats.")
+    parser.add_argument("--lexicon_path", type=str, help="Path to dataset JSON files.",
+                        default="/home/rjd2551/Speech/Gujarati/gtn/gujarati_dictionary_IITM_CommonLabelSet_final.txt")
+    parser.add_argument(
+        "--lm_arpa_path", type=str, help="Path to language model arpa file.",
+        default="/home/rjd2551/Speech/Gujarati/gu-words.arpa"
+    )
+    parser.add_argument(
+        "--tokens_path", type=str, help="Path to save tokens.", default=None
+    )
+    args = parser.parse_args()
+    tokens_to_index = {'a': 0, 'aa': 1, 'ae': 2, 'ax': 3, 'b': 4, 'bh': 5, 'c': 6, 'ch': 7, 'd': 8, 'dh': 9, 'dx': 10,
+                       'dxh': 11, 'ee': 12, 'ei': 13, 'g': 14, 'gh': 15, 'h': 16, 'hq': 17, 'i': 18, 'ii': 19, 'j': 20,
+                       'jh': 21, 'k': 22, 'kh': 23, 'l': 24, 'lx': 25, 'm': 26, 'mq': 27, 'n': 28, 'ng': 29, 'nj': 30,
+                       'nx': 31, 'o': 32, 'ou': 33, 'p': 34, 'ph': 35, 'q': 36, 'r': 37, 'rq': 38, 's': 39, 'sh': 40,
+                       'sx': 41, 't': 42, 'th': 43, 'tx': 44, 'txh': 45, 'u': 46, 'uu': 47, 'w': 48, 'y': 49, '▁': 50}
+    compose_language_grammar(tokens_to_index, args.lexicon_path, args.lm_arpa_path)
 
