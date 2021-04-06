@@ -281,8 +281,7 @@ class RNN(torch.nn.Module):
             if dropout > 0:
                 convs.append(torch.nn.Dropout(dropout))
             in_channels = out_channels
-            dilation = dilation if dilation else 1
-            h_out = torch.floor((h_out + 2*padding - dilation*(kernel - 1) - 1)/stride + 1)
+            h_out //= stride
         self.convs = torch.nn.Sequential(*convs)
         rnn_input_size = h_out * out_channels
 
@@ -302,10 +301,13 @@ class RNN(torch.nn.Module):
 
     def forward(self, inputs):
         # inputs shape: [B, H, W]
+        """
         outputs = inputs.unsqueeze(1)
         outputs = self.convs(outputs)
         b, c, h, w = outputs.shape
         outputs = outputs.reshape(b, c * h, w).permute(0, 2, 1)
+        """
+        outputs = inputs.permute(0, 2, 1)
         outputs, _ = self.rnn(outputs)
         # outputs shape: [B, W, output_size]
         return self.linear(outputs)

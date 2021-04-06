@@ -58,19 +58,20 @@ def test(args):
         device = torch.device("cpu")
 
     dataset = config["data"]["dataset"]
-    if not os.path.exists(f"datasets/{dataset}.py"):
+    if not os.path.exists(f"../datasets/{dataset}.py"):
         raise ValueError(f"Unknown dataset {dataset}")
-    dataset = utils.module_from_file("dataset", f"datasets/{dataset}.py")
+    dataset = utils.module_from_file("dataset", f"../datasets/{dataset}.py")
 
     input_size = config["data"]["num_features"]
     data_path = config["data"]["data_path"]
-    preprocessor = dataset.Preprocessor(
+    preprocessor = dataset.audioset.Preprocessor(
         data_path,
         num_features=input_size,
         tokens_path=config["data"].get("tokens", None),
         lexicon_path=config["data"].get("lexicon", None),
         use_words=config["data"].get("use_words", False),
         prepend_wordsep=config["data"].get("prepend_wordsep", False),
+        splits=getattr(dataset.Dataset, 'splits')
     )
     data = dataset.Dataset(data_path, preprocessor, split=args.split)
     loader = utils.data_loader(data, config)
