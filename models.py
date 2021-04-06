@@ -344,6 +344,22 @@ class CTC(torch.nn.Module):
             collapsed_predictions.append(pred)
         return collapsed_predictions
 
+    @staticmethod
+    def viterbi_lexicon_decoding(outputs, g_l_p):
+        B, T, C = outputs.shape
+        predictions = []
+
+        def process(b):
+            # create emission graph
+            g_emissions = gtn.linear_graph(T, C, outputs)
+            cpu_data = outputs[b].cpu().contiguous()
+            g_emissions.set_weights(cpu_data.data_ptr())
+
+            predictions.append(gtn.viterbi_path(gtn.compose(g_emissions, g_l_p)).labels_to_list())
+
+        gtn.parallel_for(process, range(B))
+
+        return predictions
 
 class ASG(torch.nn.Module):
     def __init__(self, num_classes, num_replabels=1, use_garbage=True):
