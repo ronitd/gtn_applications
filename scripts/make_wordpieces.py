@@ -63,16 +63,15 @@ def interspeech_pieces(args):
 
 
 def json_set_pieces(args, dataset, vocab=None):
-
+    # Train sentencepiece model only on the training set
+    train_text = []
+    for subset in getattr(dataset.Dataset, 'splits'):
+        ds = dataset.audioset.load_data_split(args.data_dir, subset, "▁")
+        train_text.extend(l["text"] for l in ds)
     if args.text_file is not None:
         with open(args.text_file, "r") as fid:
             spm_text = [l.strip() for l in fid]
     else:
-        # Train sentencepiece model only on the training set
-        train_text = []
-        for subset in getattr(dataset.Dataset, 'splits'):
-            ds = dataset.audioset.load_data_split(args.data_dir, subset, "▁")
-            train_text.extend(l["text"] for l in ds)
         spm_text = train_text
     num_pieces = args.num_pieces
     sp = train_spm_model(
