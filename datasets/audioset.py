@@ -1,6 +1,5 @@
 """
 Copyright (c) Facebook, Inc. and its affiliates.
-
 This source code is licensed under the MIT license found in the
 LICENSE file in the root directory of this source tree.
 """
@@ -121,16 +120,8 @@ class Preprocessor:
         if lexicon_path is not None:
             with open(lexicon_path, "r") as fid:
                 lexicon = (l.strip().split() for l in fid)
-                d = {}
-                tokens_set = set()
-                tokens_set.add(self.wordsep)
-                for l in lexicon:
-                    d[l[0]] = l[1:]
-                    for i in l[1:]:
-                        tokens_set.add(i)
-                self.tokens = [l.strip() for l in tokens_set]
-
-                self.lexicon = d
+                lexicon = {l[0]: l[1:] for l in lexicon}
+                self.lexicon = lexicon
         else:
             self.lexicon = None
 
@@ -149,10 +140,9 @@ class Preprocessor:
                 line = [
                     t
                     for w in line.split(self.wordsep)
-                    for t in self.lexicon.get(w, self.wordsep + w).append(self.wordsep)
+                    for t in self.lexicon.get(w, self.wordsep + w)
                 ]
             tok_to_idx = self.tokens_to_index
-            line.strip(self.wordsep)
         # In some cases we require the target to start with self.wordsep, for
         # example when learning word piece decompositions.
         if self._prepend_wordsep:
