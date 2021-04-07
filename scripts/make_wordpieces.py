@@ -58,14 +58,14 @@ def wsj_pieces(args):
 
 
 def interspeech_pieces(args):
-    interspeech = module_from_file("librispeech", os.path.join(root_dir, "../datasets/librispeech.py"))
+    interspeech = module_from_file("interspeech", os.path.join(root_dir, "datasets/interspeech.py"))
     json_set_pieces(args, interspeech)
 
 def json_set_pieces(args, dataset, vocab=None):
     # Train sentencepiece model only on the training set
     train_text = []
-    for subset in dataset.SPLITS["train"]:
-        ds = dataset.load_data_split(args.data_dir, subset)
+    for subset in getattr(dataset.Dataset, 'splits'):
+        ds = dataset.audioset.load_data_split(args.data_dir, subset, "▁")
         train_text.extend(l["text"] for l in ds)
     if args.text_file is not None:
         with open(args.text_file, "r") as fid:
