@@ -57,6 +57,10 @@ def wsj_pieces(args):
     json_set_pieces(args, wsj, vocab)
 
 
+def interspeech_pieces(args):
+    interspeech = module_from_file("librispeech", os.path.join(root_dir, "../datasets/librispeech.py"))
+    json_set_pieces(args, interspeech)
+
 def json_set_pieces(args, dataset, vocab=None):
     # Train sentencepiece model only on the training set
     train_text = []
@@ -117,7 +121,7 @@ if __name__ == "__main__":
         default="iamdb",
         type=str,
         help="Name of the dataset.",
-        choices=["iamdb", "librispeech", "wsj"],
+        choices=["iamdb", "librispeech", "wsj", "interspeech"],
     )
     parser.add_argument(
         "--data_dir",
