@@ -1,13 +1,13 @@
 import gtn
 import numpy as np
 import math
-from IPython.display import display, Image
+#from IPython.display import display, Image
 # import sys
 # sys.path.append('./scripts/')
 # import audioset
 import scripts.load_arpa as arpa
 
-from mfst import FST
+from mfst import FST, RealSemiringWeight
 import pickle
 
 
@@ -57,7 +57,7 @@ def add(root, phonemes, word):
 
 def language_graph(tokens_to_idx, root, vocab, blank_idx):
     # g = gtn.Graph(False)
-    g = FST()
+    g = FST(RealSemiringWeight)
     epsilon=0
     q, count_q = [], []
     q.append(root)
@@ -66,16 +66,16 @@ def language_graph(tokens_to_idx, root, vocab, blank_idx):
 
     end = 1
     count = 1
-    s = g.add_node()
+    s = g.add_state()
     g.set_initial_state(s)
-    f = g.add_node()
+    f = g.add_state()
     g.set_final_weight(f, 1)
     while q:
         curr = q.pop(0)
         curr_count = count_q.pop(0)
         for child in curr.children:
             count += 1
-            g.add_node()
+            g.add_state()
             # curr.children[child].counter / curr.counter
             g.add_arc(curr_count, count, tokens_to_idx[curr.children[child].char]+1, epsilon, 0
                       )
@@ -85,7 +85,7 @@ def language_graph(tokens_to_idx, root, vocab, blank_idx):
             q.append(curr.children[child])
         if curr.word_finished:
             g.add_arc(curr_count, end, epsilon, vocab[curr.word]+1, 0)
-            g.add_arc(curr_count, end, tokens_to_idx['_'], vocab[curr.word]+1, 0)
+            g.add_arc(curr_count, end, tokens_to_idx['▁'], vocab[curr.word]+1, 0)
 
     g = g.closure()
     pickle.dump(g, file=open('L', 'wb'))
@@ -108,7 +108,7 @@ def unigram(vocab, count, symb):
 
 
 def build_lm_graph(ngram_counts, vocab):
-    graph = FST()
+    graph = FST(RealSemiringWeight)
     lm_order = len(ngram_counts)
     assert lm_order > 1, "build_lm_graph doesn't work for unigram LMs"
     state_to_node = {}
@@ -120,7 +120,7 @@ def build_lm_graph(ngram_counts, vocab):
             return node
         # is_start = state == tuple([vocab[BOS]])
         # is_end = vocab[EOS] in state
-        node = graph.add_node()
+        node = graph.add_state()
         if state == tuple([vocab[BOS]]):
             graph.set_initial_state(node)
         if vocab[EOS] in state:
@@ -152,20 +152,23 @@ def compose_language_grammar(tokens_to_index, lexicon_path, lm_path):
     with open(lexicon_path, "r") as fid:
         lexicon = (l.strip().split() for l in fid)
         for l in lexicon:
-            d[l[1:]] = l[0]
+            d[l[0]] = l[1:]
     for word in vocab:
         if word in d:
             add(root, d[word], word)
 
-    g_lexicon = language_graph(tokens_to_index, root, vocab)
-
+    g_lexicon = language_graph(tokens_to_index, root, vocab, len(tokens_to_index))
+    print("Lexicon Done")
     g_lm = build_lm_graph(counts, vocab)
     # g_lm.arc_sort()
     # gtn.savetxt('G.txt', g_lm)
     pickle.dump(g_lm, file=open('G', 'wb'))
+    print('G Done')
     LG = FST.compose(g_lexicon, g_lm)
+    pickle.dump(LG, file=open('LG', 'wb'))
     # g.arc_sort()
-    gtn.savetxt('LG.txt', LG)
+    #gtn.savetxt('LG.txt', LG)
+    print('Both Done')
 
 
 if __name__ == '__main__':
