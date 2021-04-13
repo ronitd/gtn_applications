@@ -57,7 +57,7 @@ def add(root, phonemes, word):
 
 def language_graph(tokens_to_idx, root, vocab, blank_idx):
     # g = gtn.Graph(False)
-    g = FST(RealSemiringWeight)
+    g = FST()
     epsilon=0
     q, count_q = [], []
     q.append(root)
@@ -77,15 +77,16 @@ def language_graph(tokens_to_idx, root, vocab, blank_idx):
             count += 1
             g.add_state()
             # curr.children[child].counter / curr.counter
-            g.add_arc(curr_count, count, tokens_to_idx[curr.children[child].char]+1, epsilon, 0
+            g.add_arc(curr_count, count, input_label=tokens_to_idx[curr.children[child].char]+1, output_label=epsilon,
+                      weight=curr.children[child].counter / curr.counter
                       )
-            g.add_arc(count, count, blank_idx + 1, epsilon, 0)
-            g.add_arc(count, count, tokens_to_idx[curr.children[child].char] + 1, epsilon, 0)
+            g.add_arc(count, count, input_label=blank_idx + 1, output_label=epsilon, weight=0)
+            g.add_arc(count, count, input_label=tokens_to_idx[curr.children[child].char] + 1, output_label=epsilon, weight=0)
             count_q.append(count)
             q.append(curr.children[child])
         if curr.word_finished:
-            g.add_arc(curr_count, end, epsilon, vocab[curr.word]+1, 0)
-            g.add_arc(curr_count, end, tokens_to_idx['▁'], vocab[curr.word]+1, 0)
+            g.add_arc(curr_count, end, input_label=epsilon, output_label=vocab[curr.word]+1, weight=0)
+            g.add_arc(curr_count, end, input_label=tokens_to_idx['▁'], output_label=vocab[curr.word]+1, weight=0)
 
     g = g.closure()
     pickle.dump(g, file=open('L', 'wb'))
@@ -108,7 +109,7 @@ def unigram(vocab, count, symb):
 
 
 def build_lm_graph(ngram_counts, vocab):
-    graph = FST(RealSemiringWeight)
+    graph = FST()
     lm_order = len(ngram_counts)
     assert lm_order > 1, "build_lm_graph doesn't work for unigram LMs"
     state_to_node = {}
@@ -136,10 +137,10 @@ def build_lm_graph(ngram_counts, vocab):
             prob, bckoff = counts[ngram]
             # p(gram[-1] | gram[:-1])
             lbl = ngram[-1] if ngram[-1] != vocab[EOS] else epsilon
-            graph.add_arc(inode, onode, lbl, lbl, prob)
+            graph.add_arc(inode, onode, input_label=lbl, output_label=lbl, weight=prob)
             if bckoff is not None and vocab[EOS] not in ngram:
                 bnode = get_node(ngram[1:])
-                graph.add_arc(onode, bnode, epsilon, epsilon, bckoff)
+                graph.add_arc(onode, bnode, input_label=epsilon, output_label=epsilon, weight=bckoff)
 
     return graph
 
