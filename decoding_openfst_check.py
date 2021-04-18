@@ -6,7 +6,7 @@ import math
 # sys.path.append('./scripts/')
 # import audioset
 import scripts.load_arpa as arpa
-import pywarpfst as fst
+import pywrapfst as fst
 # from mfst import FST, RealSemiringWeight
 import pickle
 
@@ -142,10 +142,10 @@ def build_lm_graph(ngram_counts, vocab):
     return graph
 
 
-def build_lexicon_graph(lexicon_path):
+def build_lexicon_graph(tokens_to_idx, vocab,lexicon_path):
     with open(lexicon_path, "r") as fid:
         lexicon = (l.strip().split() for l in fid)
-        epsilon=0
+        epsilon = 0
         g = fst.VectorFst()
         s = g.add_state()
         g.set_start(s)
@@ -155,10 +155,10 @@ def build_lexicon_graph(lexicon_path):
             prev = s
             for i, val in enumerate(l[1:]):
                 curr = g.add_state()
-                olabel = l[0] if i==0 else epsilon
-                g.add_arc(prev, fst.Arc(ilabel=val, olabel=olabel, weight=0, nextstate=curr))
+                olabel = vocab[l[0]]+1 if i == 0 else epsilon
+                g.add_arc(prev, fst.Arc(ilabel=tokens_to_idx[val]+1, olabel=olabel, weight=0, nextstate=curr))
                 prev = curr
-            g.add_arc(prev, fst.Arc(ilabel=val, olabel=l[0], weight=0, nextstate=f))
+            g.add_arc(prev, fst.Arc(ilabel=tokens_to_idx[val]+1, olabel=epsilon, weight=0, nextstate=f))
         g.add_arc(f, fst.Arc(ilabel=epsilon, olabel=epsilon, weight=0, nextstate=s))
     print("L Done")
     print(g.num_states())
@@ -181,7 +181,7 @@ def compose_language_grammar(tokens_to_index, lexicon_path, lm_path):
     #         add(root, d[word], word)
     #
     # g_lexicon = language_graph(tokens_to_index, root, vocab, len(tokens_to_index))
-    g_lexicon= build_lexicon_graph(lexicon_path)
+    g_lexicon= build_lexicon_graph(tokens_to_index, vocab, lexicon_path)
     print("Lexicon Done")
     g_lm = build_lm_graph(counts, vocab)
     print('G Done')
