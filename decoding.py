@@ -1,11 +1,24 @@
 import gtn
 import numpy as np
 import math
-from IPython.display import display, Image
+import pickle
+import pdb
+#from IPython.display import display, Image
 # import sys
 # sys.path.append('./scripts/')
 # import audioset
 import scripts.load_arpa as arpa
+
+
+def save_obj(obj, name):
+    with open('./obj/'+ name + '.pkl', 'wb') as f:
+        pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
+
+
+def load_obj(name):
+    with open('./obj/' + name + '.pkl', 'rb') as f:
+        return pickle.load(f)
+
 
 class TrieNode(object):
     """
@@ -64,7 +77,7 @@ def language_graph(tokens_to_idx, root, vocab, blank_idx):
             count += 1
             g.add_node()
             # curr.children[child].counter / curr.counter
-            g.add_arc(curr_count, count, tokens_to_idx[curr.children[child].char], gtn.epsilon,0
+            g.add_arc(curr_count, count, tokens_to_idx[curr.children[child].char], gtn.epsilon, math.log(curr.children[child].counter / curr.counter)
                       )
             g.add_arc(count, count, blank_idx, gtn.epsilon, 0)
             g.add_arc(count, count, tokens_to_idx[curr.children[child].char], gtn.epsilon, 0)
@@ -72,36 +85,58 @@ def language_graph(tokens_to_idx, root, vocab, blank_idx):
             q.append(curr.children[child])
         if curr.word_finished:
             g.add_arc(curr_count, end, gtn.epsilon, vocab[curr.word], 0)
-            g.add_arc(curr_count, end, tokens_to_idx['_'], vocab[curr.word], 0)
+            g.add_arc(curr_count, end, tokens_to_idx["▁"], vocab[curr.word], 0)
 
     g = gtn.closure(g)
     g.arc_sort(olabel=True)
-    gtn.savetxt('L.txt', g)
+    gtn.savetxt('gu-L-prob.txt', g)
+    exit()
     # g = gtn.loadtxt('L.txt')
     return g
 
 
 def compose_language_grammar(tokens_to_index, lexicon_path, lm_path):
     counts, vocab = arpa.read_counts_from_arpa(lm_path)
+    
     symb = {v: k for k, v in vocab.items()}
+    save_obj(symb, 'gu-tokens-to-word')
+    #print("SymbL", symb)
+    exit()
     root = TrieNode('*')
     d = {}
     with open(lexicon_path, "r") as fid:
         lexicon = (l.strip().split() for l in fid)
         for l in lexicon:
-            d[l[1:]] = l[0]
+            d[l[0]] = l[1:]
     for word in vocab:
         if word in d:
             add(root, d[word], word)
-
-    g_lexicon = language_graph(tokens_to_index, root, vocab)
+    '''
+    g_lexicon = language_graph(tokens_to_index, root, vocab, len(tokens_to_index))
 
     g_lm = arpa.build_lm_graph(counts, vocab)
     g_lm.arc_sort()
-    gtn.savetxt('G.txt', g_lm)
+    gtn.savetxt('gu-G.txt', g_lm)
     g = gtn.compose(g_lexicon, g_lm)
     g.arc_sort()
-    gtn.savetxt('LG.txt', g)
+    '''
+    #g = gtn.compose(language_graph(tokens_to_index, root, vocab, len(tokens_to_index)), arpa.build_lm_graph(counts, vocab).arc_sort())
+    gtn.savetxt('gu-LG.txt', gtn.compose(language_graph(tokens_to_index, root, vocab, len(tokens_to_index)), arpa.build_lm_graph(counts, vocab).arc_sort()).arc_sort())
+
+
+def unigram(vocab, count):
+    print(len(vocab))
+    unigram = []
+    for word in vocab:
+        g = gtn.Graph(False)
+        g.add_node(True)
+        g.add_node(False, True)
+        g.add_arc(0, 1, vocab[word], vocab[word], count[0][(vocab[word],)][0])
+        unigram.append(g)
+    print(len(unigram))
+    g = gtn.closure(gtn.union(unigram))
+    g.arc_sort()
+    gtn.savetxt('gu-U.txt', g)
 
 
 if __name__ == '__main__':
@@ -112,7 +147,7 @@ if __name__ == '__main__':
                         default="/home/rjd2551/Speech/Gujarati/gtn/gujarati_dictionary_IITM_CommonLabelSet_final.txt")
     parser.add_argument(
         "--lm_arpa_path", type=str, help="Path to language model arpa file.",
-        default="/home/rjd2551/Speech/Gujarati/gu-words.arpa"
+        default="/home/rjd2551/Speech/Gujarati/gu-bi-gram-word.arpa"
     )
     parser.add_argument(
         "--tokens_path", type=str, help="Path to save tokens.", default=None
@@ -124,4 +159,18 @@ if __name__ == '__main__':
                        'nx': 31, 'o': 32, 'ou': 33, 'p': 34, 'ph': 35, 'q': 36, 'r': 37, 'rq': 38, 's': 39, 'sh': 40,
                        'sx': 41, 't': 42, 'th': 43, 'tx': 44, 'txh': 45, 'u': 46, 'uu': 47, 'w': 48, 'y': 49, '▁': 50}
     compose_language_grammar(tokens_to_index, args.lexicon_path, args.lm_arpa_path)
+    '''
+    L = gtn.loadtxt('gu-L.txt')
+    print("L Done")
+    G = gtn.loadtxt('gu-G.txt')
+    print("G loaded")
+    pdb.set_trace()
+    LG = gtn.compose(L, G)
+    LG.arc_sort()
+    gtn.savetxt('gu-LG.txt',LG)
+    '''
+    #counts, vocab = arpa.read_counts_from_arpa(args.lm_arpa_path)
+    #unigram(vocab, counts)  
+    gtn.savetxt('gu-UG.txt', gtn.compose(gtn.loadtxt('gu-L.txt'), gtn.loadtxt('gu-U.txt')).arc_sort())
+
 
