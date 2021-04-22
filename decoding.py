@@ -8,7 +8,7 @@ import pdb
 # sys.path.append('./scripts/')
 # import audioset
 import scripts.load_arpa as arpa
-
+from collections import defaultdict
 
 def save_obj(obj, name):
     with open('./obj/'+ name + '.pkl', 'wb') as f:
@@ -95,33 +95,67 @@ def language_graph(tokens_to_idx, root, vocab, blank_idx):
     return g
 
 
+def build_lexicon_graph(tokens_to_idx, vocab, d, phoneme_to_word):
+    epsilon = 0
+    g = gtn.Graph(False)
+    s = g.add_node(True)
+    f = g.add_state(False, True)
+    for word_idx, word in enumerate(vocab):
+        prev = s
+        if word in d and phoneme_to_word[tuple(d[word])][0] == word:
+            for i, val in enumerate(d[word]):
+                curr = g.add_node()
+                oplabel = word_idx+1 if i == 0 else epsilon
+                g.add_arc(prev, curr, tokens_to_idx[val]+1, oplabel, 0)
+                prev = curr
+            g.add_arc(prev, f, epsilon, epsilon, 0)
+    g.add_arc(f, s, epsilon, epsilon, 0)
+    print(g.num_nodes())
+
+    g.arcsort(olabel=True)
+    # g.write("L-Si.fst")
+    #
+    #
+    # text_file = open("L-Si.txt", "w")
+    # text_file.write(str(g))
+    # text_file.close()
+    #exit()
+    gtn.savetxt("gu-L-gtn")
+    return g
+
+
 def compose_language_grammar(tokens_to_index, lexicon_path, lm_path):
     counts, vocab = arpa.read_counts_from_arpa(lm_path)
     
     symb = {v: k for k, v in vocab.items()}
     save_obj(symb, 'gu-tokens-to-word')
     #print("SymbL", symb)
-    exit()
+    # exit()
     root = TrieNode('*')
     d = {}
+    phoneme_to_word = defaultdict(list)
     with open(lexicon_path, "r") as fid:
         lexicon = (l.strip().split() for l in fid)
         for l in lexicon:
             d[l[0]] = l[1:]
+            phoneme_to_word[tuple(l[1:])].append(l[0])
     for word in vocab:
         if word in d:
             add(root, d[word], word)
-    '''
-    g_lexicon = language_graph(tokens_to_index, root, vocab, len(tokens_to_index))
 
+    # g_lexicon = language_graph(tokens_to_index, root, vocab, len(tokens_to_index))
+    g_lexicon = build_lexicon_graph(tokens_to_index, vocab, d, phoneme_to_word)
     g_lm = arpa.build_lm_graph(counts, vocab)
     g_lm.arc_sort()
-    gtn.savetxt('gu-G.txt', g_lm)
+    print("G nodes: ", g_lm.num_states())
+    gtn.savetxt('gu-G-gtn.txt', g_lm)
     g = gtn.compose(g_lexicon, g_lm)
     g.arc_sort()
-    '''
-    #g = gtn.compose(language_graph(tokens_to_index, root, vocab, len(tokens_to_index)), arpa.build_lm_graph(counts, vocab).arc_sort())
-    gtn.savetxt('gu-LG.txt', gtn.compose(language_graph(tokens_to_index, root, vocab, len(tokens_to_index)), arpa.build_lm_graph(counts, vocab).arc_sort()).arc_sort())
+
+    g = gtn.compose(language_graph(tokens_to_index, root, vocab, len(tokens_to_index)), arpa.build_lm_graph(counts, vocab).arc_sort())
+    print("LG states", g.num_nodes())
+    gtn.savetxt('gu-LG-gtn.txt', g)
+    # gtn.savetxt('gu-LG-gtn.txt', gtn.compose(language_graph(tokens_to_index, root, vocab, len(tokens_to_index)), arpa.build_lm_graph(counts, vocab).arc_sort()).arc_sort())
 
 
 def unigram(vocab, count):
