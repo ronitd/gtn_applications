@@ -9,7 +9,7 @@ import scripts.load_arpa as arpa
 import pywrapfst as fst
 # from mfst import FST, RealSemiringWeight
 import pickle
-
+from collections import defaultdict
 
 UNK = "<unk>"
 BOS = "<s>"
@@ -132,63 +132,113 @@ def build_lm_graph(ngram_counts, vocab):
             prob, bckoff = counts[ngram]
             # p(gram[-1] | gram[:-1])
             lbl = ngram[-1] if ngram[-1] != vocab[EOS] else epsilon
-
-            graph.add_arc(inode, fst.Arc(ilabel=lbl, olabel=lbl, weight=prob, nextstate=onode))
+            
+            graph.add_arc(inode, fst.Arc(ilabel=lbl, olabel=lbl, weight=fst.Weight(graph.weight_type(), math.exp(prob)), nextstate=onode))
             if bckoff is not None and vocab[EOS] not in ngram:
                 bnode = get_node(ngram[1:])
-                graph.add_arc(onode, fst.Arc(ilabel=epsilon, olabel=epsilon, weight=bckoff, nextstate=bnode))
+                graph.add_arc(onode, fst.Arc(ilabel=epsilon, olabel=epsilon, weight=fst.Weight(graph.weight_type(), math.exp(bckoff)), nextstate=bnode))
     graph.arcsort(sort_type="ilabel")
     graph.write("G.fst")
     return graph
 
 
-def build_lexicon_graph(tokens_to_idx, vocab,lexicon_path):
-    with open(lexicon_path, "r") as fid:
-        lexicon = (l.strip().split() for l in fid)
-        epsilon = 0
-        g = fst.VectorFst()
-        s = g.add_state()
-        g.set_start(s)
-        f = g.add_state()
-        g.set_final(f)
-        for l in lexicon:
-            prev = s
-            for i, val in enumerate(l[1:]):
+def build_lexicon_graph(tokens_to_idx, vocab, d, phoneme_to_word):
+    epsilon = 0
+    g = fst.VectorFst()
+    s = g.add_state()
+    g.set_start(s)
+    f = g.add_state()
+    g.set_final(f)
+    print(g.arc_type())
+    problem_idxs = []
+    #problem_idxs=[806, 2009, 2030, 2376, 2442, 2831, 3470, 3557, 3803, 3899, 4414, 4481, 4695, 4715, 5424, 6310, 6558, 6611, 7073, 7683, 8134, 8387, 8805, 
+    #      9010, 9218, 10194, 10619, 11208, 11882, 12019 ]
+    for word_idx, word in enumerate(vocab):
+        prev = s
+        if word_idx in problem_idxs:
+            print(word)
+            print(d[word])
+        #if word in d and word_idx<=len(vocab) and word_idx not in problem_idxs:
+        if word in d and phoneme_to_word[tuple(d[word])][0]==word:
+            for i, val in enumerate(d[word]):
                 curr = g.add_state()
-                olabel = vocab[l[0]]+1 if i == 0 else epsilon
-                g.add_arc(prev, fst.Arc(ilabel=tokens_to_idx[val]+1, olabel=olabel, weight=0, nextstate=curr))
+                oplabel = word_idx+1 if i == 0 else epsilon
+                g.add_arc(prev, fst.Arc(ilabel=tokens_to_idx[val]+1, olabel=oplabel, nextstate=curr, weight=fst.Weight(g.weight_type(), 0)))
                 prev = curr
-            g.add_arc(prev, fst.Arc(ilabel=tokens_to_idx[val]+1, olabel=epsilon, weight=0, nextstate=f))
-        g.add_arc(f, fst.Arc(ilabel=epsilon, olabel=epsilon, weight=0, nextstate=s))
-    print("L Done")
+            g.add_arc(prev, fst.Arc(ilabel=epsilon, olabel=epsilon, weight=fst.Weight(g.weight_type(), 0), nextstate=f))
+    g.add_arc(f, fst.Arc(ilabel=epsilon, olabel=epsilon, weight=fst.Weight(g.weight_type(), 0), nextstate=s))
     print(g.num_states())
+
+    #fst.disambiguate(g)
+    #print("L Disambiguos")
+    #print(g)
+    #g = fst.determinize(g)
+    #print("Determinize")
     g.arcsort(sort_type="olabel")
     g.write("L-Si.fst")
+    
+
+    text_file = open("L-Si.txt", "w")
+    text_file.write(str(g))
+    text_file.close()
+    #exit()
     return g
 
 
 def compose_language_grammar(tokens_to_index, lexicon_path, lm_path):
     counts, vocab = arpa.read_counts_from_arpa(lm_path)
+    #print(vocab)
+    #for i, val in enumerate(vocab):
+    #    if i < 807:
+    #        print(val)
     # symb = {v: k for k, v in vocab.items()}
     # root = TrieNode('*')
-    # d = {}
-    # with open(lexicon_path, "r") as fid:
-    #     lexicon = (l.strip().split() for l in fid)
-    #     for l in lexicon:
-    #         d[l[0]] = l[1:]
+    d = {}
+    phoneme_to_word = defaultdict(list)
+    with open(lexicon_path, "r") as fid:
+        lexicon = (l.strip().split() for l in fid)
+        for l in lexicon:
+            d[l[0]] = l[1:]
+            phoneme_to_word[tuple(l[1:])].append(l[0])
+    '''
+    count = 0    
+    for key, val in phoneme_to_word.items():
+        if len(val)>1:
+            count+=1
+            print(val)
+            print(key)
+    print(count)
+    exit()
+    '''
     # for word in vocab:
     #     if word in d:
     #         add(root, d[word], word)
     #
     # g_lexicon = language_graph(tokens_to_index, root, vocab, len(tokens_to_index))
-    g_lexicon= build_lexicon_graph(tokens_to_index, vocab, lexicon_path)
+    
+    g_lexicon= build_lexicon_graph(tokens_to_index, vocab, d, phoneme_to_word)
+    print("Lexicon check: ", g_lexicon.verify())
+    print("Arc type: ", g_lexicon.arc_type())
     print("Lexicon Done")
+    
     g_lm = build_lm_graph(counts, vocab)
+    print("LM check: ", g_lm.verify())
     print('G Done')
-    LG = fst.compose(g_lexicon, g_lm)
-    LG.write("LG.fst")
 
+    
+    LG = fst.compose(g_lexicon, g_lm)
+    print("LG States: ", LG.num_states())
+    #LG = fst.determinize(LG)
+    #print("After Determinize states: ",LG.num_states() )
+    #LG.minimize()
+    #print("After Miniminize states: ",LG.num_states() )
+    LG.arcsort(sort_type="ilabel")
+    LG.write("LGDetMin.fst")
+    text_file = open("gu-LG.txt", "w")
+    text_file.write(str(LG))
+    text_file.close()
     print('Both Done')
+    
 
 
 if __name__ == '__main__':
