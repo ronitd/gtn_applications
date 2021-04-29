@@ -266,6 +266,7 @@ class RNN(torch.nn.Module):
         convs = []
         in_channels = 1
         h_out = input_size
+        '''
         for out_channels, kernel, stride in zip(channels, kernel_sizes, strides):
             padding = (kernel[0] // 2, kernel[1] // 2)
             convs.append(
@@ -281,10 +282,11 @@ class RNN(torch.nn.Module):
             if dropout > 0:
                 convs.append(torch.nn.Dropout(dropout))
             in_channels = out_channels
-            h_out //= stride
+            h_out //= stride[0]
         self.convs = torch.nn.Sequential(*convs)
         rnn_input_size = h_out * out_channels
-
+        '''
+        rnn_input_size = h_out
         if cell_type.upper() not in ["RNN", "LSTM", "GRU"]:
             raise ValueError(f"Unkown rnn cell type {cell_type}")
         self.rnn = getattr(torch.nn, cell_type.upper())(
@@ -392,11 +394,11 @@ class CTC(torch.nn.Module):
 
         def process(b):
             # create emission graph
-            g_emissions = gtn.linear_graph(T, C, outputs)
+            g_emissions = gtn.linear_graph(T, C)
             cpu_data = outputs[b].cpu().contiguous()
             g_emissions.set_weights(cpu_data.data_ptr())
 
-            predictions.append(gtn.viterbi_path(gtn.compose(g_emissions, g_l_p)).labels_to_list())
+            predictions.append(gtn.viterbi_path(gtn.compose(g_emissions, g_l_p)).labels_to_list(False))
 
         gtn.parallel_for(process, range(B))
 
