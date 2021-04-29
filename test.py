@@ -16,6 +16,7 @@ import utils
 
 import gtn
 
+import pdb
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Evalaute a handwriting recognition model."
@@ -89,16 +90,26 @@ def test(args):
 
     model.eval()
     meters = utils.Meters()
-    g_l_p = gtn.loadtext("gu-L-prob.txt")
-    for inputs, targets in loader:
+    #print(preprocessor.tokens)
+    #beam_search_labels = preprocessor.tokens[:-1]
+    #beam_search_labels.extend([" ", "_"])
+    #print(beam_search_labels)
+    #exit()
+    #g_l_p = gtn.loadtxt("../gu-L-prob.txt")
+    #print("Graph loaded")
+    #pdb.set_trace()
+    #decoder = BeamCTCDecoder(beam_search_labels, lm_path=config["data"][lm_arpa], alpha=config["data"]["lm_alpha"], beta=config["data"]["lm_beta"], beam_width=config["data"]["beam_width"], blank_id=len(beam_search_labels)-1)
+    for inputs, targets, texts in loader:
+        #print("Inside the loop")
         outputs = model(inputs.to(device))
         meters.loss += criterion(outputs, targets).item() * len(targets)
         meters.num_samples += len(targets)
-        # predictions = criterion.viterbi(outputs)
-        predictions = criterion.viterbi_lexicon_decoding(outputs, g_l_p)
+        predictions = criterion.viterbi(outputs)
+        #pdb.set_trace()
+        #predictions = criterion.viterbi_lexicon_decoding(outputs, g_l_p)
         for p, t in zip(predictions, targets):
-            # p, t = preprocessor.tokens_to_text(p), preprocessor.to_text(t)
-            t = preprocessor.to_text(t)
+            p, t = preprocessor.tokens_to_text(p), preprocessor.to_text(t)
+            #p = preprocessor.word_tokens_to_text(p)
             pw, tw = p.split(preprocessor.wordsep), t.split(preprocessor.wordsep)
             pw, tw = list(filter(None, pw)), list(filter(None, tw))
             tokens_dist = editdistance.eval(p, t)
