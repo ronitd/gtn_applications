@@ -159,13 +159,15 @@ def build_lexicon_graph(tokens_to_idx, vocab, d, phoneme_to_word):
             print(word)
             print(d[word])
         #if word in d and word_idx<=len(vocab) and word_idx not in problem_idxs:
-        if word in d and phoneme_to_word[tuple(d[word])][0]==word:
+        if word in d and phoneme_to_word[tuple(d[word])][0] == word:
             for i, val in enumerate(d[word]):
                 curr = g.add_state()
                 oplabel = word_idx+1 if i == 0 else epsilon
                 g.add_arc(prev, fst.Arc(ilabel=tokens_to_idx[val]+1, olabel=oplabel, nextstate=curr, weight=fst.Weight(g.weight_type(), 0)))
                 prev = curr
             g.add_arc(prev, fst.Arc(ilabel=epsilon, olabel=epsilon, weight=fst.Weight(g.weight_type(), 0), nextstate=f))
+            g.add_arc(prev, fst.Arc(ilabel=len(tokens_to_index), olabel=len(tokens_to_index), weight=fst.Weight(g.weight_type(), 0), nextstate=f))
+
     g.add_arc(f, fst.Arc(ilabel=epsilon, olabel=epsilon, weight=fst.Weight(g.weight_type(), 0), nextstate=s))
     print(g.num_states())
 
@@ -182,6 +184,27 @@ def build_lexicon_graph(tokens_to_idx, vocab, d, phoneme_to_word):
     text_file.write(str(g))
     text_file.close()
     #exit()
+    return g
+
+
+def build_token_graph(tokens_to_index):
+    epsilon = 0
+    g = fst.VectorFst()
+    s = g.add_state()
+    g.set_start(s)
+    f = g.add_state()
+    g.set_final(f)
+    for token, idx in enumerate(tokens_to_index):
+        curr = g.add_state()
+        g.add_arc(s, fst.Arc(ilabel=idx+1, olabel=idx+1, weight=fst.Weight(g.weight_type(), 0), nextstate=curr))
+        g.add_arc(curr, fst.Arc(ilabel=idx + 1, olabel=epsilon, weight=fst.Weight(g.weight_type(), 0), nextstate=curr))
+        g.add_arc(curr, fst.Arc(ilabel=epsilon, olabel=epsilon, weight=fst.Weight(g.weight_type(), 0), nextstate=f))
+    g.add_arc(s, fst.Arc(ilabel=len(tokens_to_index)+1, olabel=epsilon, weight=fst.Weight(g.weight_type(), 0), nextstate=s))
+    g.add_arc(f, fst.Arc(ilabel=len(tokens_to_index) + 1, olabel=epsilon, weight=fst.Weight(g.weight_type(), 0),
+                         nextstate=f))
+    g.add_arc(f, fst.Arc(ilabel=epsilon, olabel=epsilon, weight=fst.Weight(g.weight_type(), 0),
+                         nextstate=s))
+    g.arcsort(sort_type="olabel")
     return g
 
 
@@ -228,17 +251,21 @@ def compose_language_grammar(tokens_to_index, lexicon_path, lm_path):
     
     LG = fst.compose(g_lexicon, g_lm)
     print("LG States: ", LG.num_states())
-    #LG = fst.determinize(LG)
-    #print("After Determinize states: ",LG.num_states() )
-    #LG.minimize()
-    #print("After Miniminize states: ",LG.num_states() )
+    LG = fst.determinize(LG)
+    print("After Determinize states: ", LG.num_states())
+    LG.minimize()
+    print("After Miniminize states: ", LG.num_states())
     LG.arcsort(sort_type="ilabel")
     LG.write("LGDetMin.fst")
     text_file = open("gu-LG.txt", "w")
     text_file.write(str(LG))
     text_file.close()
     print('Both Done')
-    
+    T = build_token_graph(tokens_to_index)
+    TLG = fst.compose(T, LG)
+    TLG = TLG.arcsort(sort_typr="ilabel")
+    print("TLG states: ", TLG.num_states())
+    TLG.write("TLGDetMin.fst")
 
 
 if __name__ == '__main__':

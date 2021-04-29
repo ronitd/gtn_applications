@@ -12,7 +12,7 @@ import os
 import torch
 import utils
 import transducer
-
+import pywrapfst as fst
 
 class TDSBlock2d(torch.nn.Module):
     def __init__(self, in_channels, img_depth, kernel_size, dropout):
@@ -345,6 +345,45 @@ class CTC(torch.nn.Module):
             pred = pred[pred != self.blank]
             collapsed_predictions.append(pred)
         return collapsed_predictions
+
+
+    @staticmethod
+    def shortest_path_openfst(outputs, TLG):
+
+        def get_shortest_path_list(g):
+            s = g.start()
+            pred = []
+            while float(g.final(s)) != 0:
+                for arc in g.arcs(s):
+                    pred.append(arc.olabel)
+                    s = arc.nextstate
+            return pred
+
+        def build_emission_graph(T, C, output):
+            g = fst.VectorFst()
+            s = g.add_state()
+            g.set_start(s)
+            prev = s
+            for t in T:
+                curr = g.add_state()
+                for c in C:
+                    g.add_arc(prev,
+                              fst.Arc(ilabel=c + 1, olabel=c + 1, weight=fst.Weight(g.weight_type(), output[t][c]),
+                                      nextstate=curr))
+                prev = curr
+            g.set_final(prev)
+            g.arcsort(sort_type="olabel")
+            return g
+
+        B, T, C = outputs.shape
+        outputs = torch.nn.functional.log_softmax(outputs, dim=2)
+        predictions = []
+        for b in range(B):
+            emission = build_emission_graph(T, C, outputs[b])
+            predictions.append(get_shortest_path_list(fst.compose(emission, TLG)))
+
+        return predictions
+
 
     @staticmethod
     def viterbi_lexicon_decoding(outputs, g_l_p):

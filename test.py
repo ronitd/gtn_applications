@@ -15,7 +15,7 @@ import models
 import utils
 
 import gtn
-
+import pywrapfst as fst
 import pdb
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -99,14 +99,16 @@ def test(args):
     #print("Graph loaded")
     #pdb.set_trace()
     #decoder = BeamCTCDecoder(beam_search_labels, lm_path=config["data"][lm_arpa], alpha=config["data"]["lm_alpha"], beta=config["data"]["lm_beta"], beam_width=config["data"]["beam_width"], blank_id=len(beam_search_labels)-1)
+    TLG = fst.FST.read("TLG.fst")
     for inputs, targets, texts in loader:
         #print("Inside the loop")
         outputs = model(inputs.to(device))
         meters.loss += criterion(outputs, targets).item() * len(targets)
         meters.num_samples += len(targets)
-        predictions = criterion.viterbi(outputs)
+        # predictions = criterion.viterbi(outputs)
         #pdb.set_trace()
         #predictions = criterion.viterbi_lexicon_decoding(outputs, g_l_p)
+        predictions = criterion.shortest_path_openfst(outputs, TLG)
         for p, t in zip(predictions, targets):
             p, t = preprocessor.tokens_to_text(p), preprocessor.to_text(t)
             #p = preprocessor.word_tokens_to_text(p)
