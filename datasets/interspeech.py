@@ -6,16 +6,17 @@ LICENSE file in the root directory of this source tree.
 """
 
 import torchaudio
-
-import audioset
+import sys
+sys.path.append('./datasets/')
+import audioset_ronit as audioset
 
 
 class Dataset(audioset.Dataset):
 
     splits = {
-        "train": ["gu-train"],
-        "validation": ["gu-test"],
-        "test": ["gu-test"],
+        "train": ["gu-in-Train"],
+        "validation": ["gu-in-Test"],
+        "test": ["gu-in-Test"],
     }
 
     sample_rate = 16000

@@ -78,7 +78,7 @@ class BatchSortedSampler(torch.utils.data.Sampler):
 
 
 def padding_collate(samples):
-    inputs, targets = zip(*samples)
+    inputs, targets, texts = zip(*samples)
 
     # collate inputs:
     h = inputs[0].shape[1]
@@ -87,7 +87,7 @@ def padding_collate(samples):
     for e, ip in enumerate(inputs):
         batch_inputs[e, :, : ip.shape[2]] = ip
 
-    return batch_inputs, targets
+    return batch_inputs, targets, texts
 
 
 @dataclass

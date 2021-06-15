@@ -1,0 +1,31 @@
+{
+    "seed": 0,
+    "data": {
+        "dataset": "interspeech",
+        "data_path": "/home/rjd2551/Speech/Gujarati/gtn/",
+        "num_features": 128,
+        "tokens": "/home/rjd2551/Speech/Gujarati/gtn/tokens.txt",
+        "lexicon": "/home/rjd2551/Speech/Gujarati/gtn/gujarati_dictionary_IITM_CommonLabelSet_final.txt",
+	"lm_arpa": "/home/rjd2551/Speech/Gujarati/gu-words.arpa",
+	"prepend_wordsep":""
+    },
+    "criterion":{
+	    "use_pt":false
+    },
+    "model_type": "rnn",
+    "model": {
+	"cell_type":"lstm",
+	"hidden_size":320,
+	"num_layers":4,
+	"dropout":0.5,
+	"bidirectional":true
+
+    },
+    "optim": {
+        "batch_size": 1,
+        "epochs": 200,
+        "learning_rate": 0.4,
+        "step_size": 100,
+        "max_grad_norm": 5
+    }
+}

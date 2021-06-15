@@ -12,7 +12,7 @@ import re
 import torch
 import torchaudio
 import torchvision
-
+import pickle
 
 def log_normalize(x):
     x.add_(1e-6).log_()
@@ -20,6 +20,15 @@ def log_normalize(x):
     std = x.std()
     return x.sub_(mean).div_(std + 1e-6)
 
+
+def save_obj(obj, name):
+    with open('./obj/'+ name + '.pkl', 'wb') as f:
+        pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
+
+
+def load_obj(name):
+    with open('./obj/' + name + '.pkl', 'rb') as f:
+        return pickle.load(f)
 
 class Dataset(torch.utils.data.Dataset):
     def __init__(self, data_path, preprocessor, split, splits, augmentation=None, sample_rate=16000):
@@ -61,7 +70,7 @@ class Dataset(torch.utils.data.Dataset):
         audio = torchaudio.load(audio_file)
         inputs = self.transforms(audio[0])
         outputs = self.preprocessor.to_index(text)
-        return inputs, outputs
+        return inputs, outputs, text
 
     def __len__(self):
         return len(self.dataset)
@@ -133,9 +142,10 @@ class Preprocessor:
                 self.lexicon = d
         else:
             self.lexicon = None
-
+        self.tokens = sorted(self.tokens) 
         self.graphemes_to_index = {t: i for i, t in enumerate(self.graphemes)}
         self.tokens_to_index = {t: i for i, t in enumerate(self.tokens)}
+        self.tokens_to_word = load_obj("gu-tokens-to-word") 
 
     @property
     def num_tokens(self):
@@ -143,7 +153,12 @@ class Preprocessor:
 
     def to_index(self, line):
         tok_to_idx = self.graphemes_to_index
+        line_temp = []
         if self.lexicon is not None:
+            for w in line.split(self.wordsep):
+                line_temp.extend(self.lexicon.get(w))
+                line_temp.append(self.wordsep)
+            '''
             if len(line) > 0:
                 # If the word is not found in the lexicon, fall back to letters.
                 line = [
@@ -151,8 +166,10 @@ class Preprocessor:
                     for w in line.split(self.wordsep)
                     for t in self.lexicon.get(w, self.wordsep + w).append(self.wordsep)
                 ]
+            '''
             tok_to_idx = self.tokens_to_index
-            line.strip(self.wordsep)
+            line = line_temp
+            line = line[:-1]
         # In some cases we require the target to start with self.wordsep, for
         # example when learning word piece decompositions.
         if self._prepend_wordsep:
@@ -167,12 +184,23 @@ class Preprocessor:
         return self._post_process(encoding[i] for i in indices)
 
     def tokens_to_text(self, indices):
-        return self._post_process(self.tokens[i] for i in indices)
+        return self._post_process(self.tokens[i] for i in indices if i != -1 and i != len(self.tokens))
 
     def _post_process(self, indices):
         # ignore preceding and trailling spaces
         return "".join(indices).strip(self.wordsep)
 
+    def word_tokens_to_text(self, indices):
+        return self._post_process_word(self.tokens_to_word[i] for i in indices if i != -1)
+
+    def _post_process_word(self, words):
+        #print("".join(words))
+        #print("".join(words))
+        #sent = re.sub(r"\s+", self.wordsep, self.wordsep.join(words).replace(",", ""))
+        #print(sent)
+        #return re.sub(r"\s+", self.wordsep, sent.replace(",", ""))
+        #".join(words)
+        return self.wordsep.join(words).replace(",", "")
 
 def load_data_split(data_path, split, wordsep):
     json_file = os.path.join(data_path, f"{split}.json")

@@ -99,7 +99,7 @@ def test(args):
     #print("Graph loaded")
     #pdb.set_trace()
     #decoder = BeamCTCDecoder(beam_search_labels, lm_path=config["data"][lm_arpa], alpha=config["data"]["lm_alpha"], beta=config["data"]["lm_beta"], beam_width=config["data"]["beam_width"], blank_id=len(beam_search_labels)-1)
-    TLG = fst.FST.read("TLG.fst")
+    TLG = fst.Fst.read("../TLGDetMin.fst")
     for inputs, targets, texts in loader:
         #print("Inside the loop")
         outputs = model(inputs.to(device))

@@ -366,11 +366,11 @@ class CTC(torch.nn.Module):
             s = g.add_state()
             g.set_start(s)
             prev = s
-            for t in T:
+            for t in range(T):
                 curr = g.add_state()
-                for c in C:
+                for c in range(C):
                     g.add_arc(prev,
-                              fst.Arc(ilabel=c + 1, olabel=c + 1, weight=fst.Weight(g.weight_type(), output[t][c]),
+                              fst.Arc(ilabel=c + 1, olabel=c + 1, weight=fst.Weight(g.weight_type(), -output[t][c].item()),
                                       nextstate=curr))
                 prev = curr
             g.set_final(prev)

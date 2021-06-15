@@ -1,0 +1,31 @@
+{
+    "seed": 0,
+    "data": {
+        "dataset": "interspeech",
+        "data_path": "/home/rjd2551/Speech/Gujarati/gtn/",
+        "num_features": 128,
+        "tokens": "/home/rjd2551/Speech/Gujarati/gtn/word_pieces_tokens_200.txt",
+        "lexicon": "/home/rjd2551/Speech/Gujarati/gtn/word_pieces_lex_200.txt",
+	"lm_arpa": "/home/rjd2551/Speech/Gujarati/gu-words.arpa",
+	"prepend_wordsep":""
+    },
+    "criterion":{
+	    "use_pt":true
+    },
+    "model_type": "rnn",
+    "model": {
+	"cell_type":"lstm",
+	"hidden_size":320,
+	"num_layers":4,
+	"dropout":0.5,
+	"bidirectional":true
+
+    },
+    "optim": {
+        "batch_size": 32,
+        "epochs": 100,
+        "learning_rate": 0.08,
+        "step_size": 25,
+        "max_grad_norm": 5
+    }
+}

@@ -80,7 +80,7 @@ def compute_edit_distance(predictions, targets, preprocessor):
     for p, t in zip(predictions, targets):
         p, t = preprocessor.tokens_to_text(p), preprocessor.to_text(t)
         pw, tw = p.split(preprocessor.wordsep), t.split(preprocessor.wordsep)
-        pw, tw = list(filter(None, pw)), list(filter(None, tw))
+        #pw, tw = list(filter(None, pw)), list(filter(None, tw))
         tokens_dist += editdistance.eval(p, t)
         words_dist += editdistance.eval(pw, tw)
         n_tokens += len(t)
@@ -156,21 +156,24 @@ def train(world_rank, args):
     # setup data loaders:
     logging.info("Loading dataset ...")
     dataset = config["data"]["dataset"]
-    if not os.path.exists(f"datasets/{dataset}.py"):
+    #print(dataset)
+    #print(os.getcwd())
+    if not os.path.exists(f"../datasets/{dataset}.py"):
         raise ValueError(f"Unknown dataset {dataset}")
-    dataset = utils.module_from_file("dataset", f"datasets/{dataset}.py")
+    dataset = utils.module_from_file("dataset", f"../datasets/{dataset}.py")
 
     input_size = config["data"]["num_features"]
     data_path = config["data"]["data_path"]
-    preprocessor = dataset.Preprocessor(
+    preprocessor = dataset.audioset.Preprocessor(
         data_path,
         num_features=input_size,
         tokens_path=config["data"].get("tokens", None),
         lexicon_path=config["data"].get("lexicon", None),
         use_words=config["data"].get("use_words", False),
         prepend_wordsep=config["data"].get("prepend_wordsep", False),
+        splits=getattr(dataset.Dataset, 'splits') 
     )
-    trainset = dataset.Dataset(data_path, preprocessor, split="train", augment=True)
+    trainset = dataset.Dataset(data_path, preprocessor, split="train", augment=False)
     valset = dataset.Dataset(data_path, preprocessor, split="validation")
     train_loader = utils.data_loader(trainset, config, world_rank, args.world_size)
     val_loader = utils.data_loader(valset, config, world_rank, args.world_size)
@@ -182,6 +185,8 @@ def train(world_rank, args):
         preprocessor,
         config.get("criterion", {}),
     )
+    print("Output ", output_size)
+    print("Tokens: ", preprocessor.tokens)
     criterion = criterion.to(device)
     model = models.load_model(
         config["model_type"], input_size, output_size, config["model"]
